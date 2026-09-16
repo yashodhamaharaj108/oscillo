@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Oscillo — generative audio·visual instrument</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23cfc9ff' stroke-width='2'/%3E%3Cpath d='M6 16h4l2-6 4 12 3-9 2 3h5' fill='none' stroke='%23cfc9ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --ink:#eceaf4;
+  --dim:rgba(236,234,244,.55);
+  --faint:rgba(236,234,244,.32);
+  --line:rgba(236,234,244,.14);
+  --accent:#cfc9ff;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#08080d;color:var(--ink);
+  font:400 16px/1.5 "Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
+  overflow:hidden;-webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+/* ── Menu ─────────────────────────────────────────── */
+#menu{
+  position:fixed;inset:0;z-index:10;overflow:auto;
+  display:grid;place-items:center;
+  background:#08080d;
+  transition:opacity .55s ease,visibility .55s;
+}
+#menu.gone{opacity:0;visibility:hidden;pointer-events:none}
+#menu::before,#menu::after{
+  content:"";position:absolute;width:58vmax;height:58vmax;border-radius:50%;
+  filter:blur(90px);opacity:.15;pointer-events:none;
+}
+#menu::before{
+  background:radial-gradient(circle,#5643c9 0%,transparent 62%);
+  top:-16vmax;left:-12vmax;animation:drift1 27s ease-in-out infinite alternate;
+}
+#menu::after{
+  background:radial-gradient(circle,#1e7f74 0%,transparent 62%);
+  bottom:-18vmax;right:-14vmax;animation:drift2 33s ease-in-out infinite alternate;
+}
+@keyframes drift1{from{transform:translate(0,0) scale(1)}to{transform:translate(14vw,10vh) scale(1.15)}}
+@keyframes drift2{from{transform:translate(0,0) scale(1.1)}to{transform:translate(-12vw,-8vh) scale(.95)}}
+
+.wrap{position:relative;max-width:980px;width:100%;padding:56px 28px 40px}
+h1{
+  font-size:clamp(38px,7vw,62px);font-weight:200;
+  letter-spacing:.42em;text-indent:.42em;text-align:center;
+}
+.tag{
+  text-align:center;color:var(--dim);font-size:14px;
+  max-width:540px;margin:12px auto 46px;
+}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px 40px}
+@media (max-width:760px){.cols{grid-template-columns:1fr}}
+.cols h3{
+  font-size:11px;font-weight:600;letter-spacing:.3em;text-transform:uppercase;
+  color:var(--faint);margin-bottom:14px;
+}
+.card{
+  display:block;width:100%;text-align:left;
+  padding:13px 16px;margin-bottom:10px;
+  border:1px solid var(--line);border-radius:14px;
+  background:rgba(255,255,255,.02);
+  transition:background .18s,border-color .18s,transform .18s,box-shadow .18s;
+}
+.card:hover{background:rgba(255,255,255,.055);transform:translateY(-1px)}
+.card.sel{
+  border-color:rgba(207,201,255,.75);
+  background:rgba(122,110,255,.10);
+  box-shadow:0 0 0 1px rgba(207,201,255,.3),0 6px 28px -10px rgba(122,110,255,.5);
+}
+.card b{display:block;font-weight:600;font-size:15px}
+.card span{font-size:12.5px;color:var(--dim)}
+.go{display:flex;flex-direction:column;align-items:center;gap:14px;margin-top:42px}
+#generate{
+  padding:15px 56px;border-radius:999px;
+  background:var(--ink);color:#0b0b12;
+  font-weight:600;font-size:14px;letter-spacing:.18em;
+  transition:transform .2s,box-shadow .2s,background .2s,color .2s;
+}
+#generate:disabled{background:transparent;color:var(--faint);border:1px solid var(--line);cursor:default}
+#generate:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 8px 32px -8px rgba(236,234,244,.5)}
+#lucky{font-size:12.5px;color:var(--dim);text-decoration:underline dotted;text-underline-offset:3px}
+#lucky:hover{color:var(--ink)}
+.hint{font-size:12px;color:var(--faint);text-align:center;max-width:420px}
+
+/* ── Stage ────────────────────────────────────────── */
+#stage{position:fixed;inset:0;background:#000}
+#stage.gone{display:none}
+#stage.hidecursor{cursor:none}
+#viz{position:absolute;inset:0;width:100%;height:100%;display:block}
+.hud{position:absolute;inset:0;pointer-events:none;transition:opacity .5s}
+.hud.hidden{opacity:0}
+#label{
+  position:absolute;top:22px;left:26px;
+  color:#fff;mix-blend-mode:difference;
+  font-size:11px;letter-spacing:.32em;text-transform:uppercase;
+}
+#labelText{opacity:.72}
+#seedTag{opacity:.38;margin-top:4px;font-size:10px;letter-spacing:.24em}
+#fps{
+  position:absolute;top:22px;right:26px;display:none;
+  color:#fff;mix-blend-mode:difference;opacity:.6;
+  font-size:11px;letter-spacing:.14em;font-variant-numeric:tabular-nums;
+}
+#controls{
+  position:absolute;bottom:26px;left:50%;transform:translateX(-50%);
+  display:flex;gap:6px;padding:8px;border-radius:999px;
+  background:rgba(12,12,18,.42);backdrop-filter:blur(14px);
+  border:1px solid rgba(255,255,255,.09);
+  pointer-events:auto;
+}
+.cbtn{
+  width:44px;height:44px;border-radius:50%;
+  display:grid;place-items:center;color:#fff;
+  transition:background .15s,transform .15s;
+}
+.cbtn:hover{background:rgba(255,255,255,.13)}
+.cbtn:active{transform:scale(.93)}
+.cbtn svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.cbtn svg .solid{fill:#fff;stroke:none}
+#btnPlay{background:rgba(255,255,255,.10)}
+</style>
+</head>
+<body>
+
+<div id="menu">
+  <div class="wrap">
+    <h1>OSCILLO</h1>
+    <p class="tag">A generative audio·visual instrument. Pick a sound and a mood —
+    every note and every pixel is synthesized live in your browser. Nothing recorded, nothing loaded.</p>
+
+    <div class="cols">
+      <section>
+        <h3>01 · Music style</h3>
+        <button class="card" data-style="ambient"><b>Ambient / Atmospheric</b><span>weightless pads, endless space, no pulse</span></button>
+        <button class="card" data-style="edm"><b>Electronic / EDM</b><span>four on the floor, arps, rising energy</span></button>
+        <button class="card" data-style="orchestral"><b>Orchestral / Cinematic</b><span>swelling strings, distant drums, melody</span></button>
+        <button class="card" data-style="lofi"><b>Lo-fi / Chill</b><span>dusty keys, lazy swing, warm and mellow</span></button>
+      </section>
+      <section>
+        <h3>02 · Visual mood</h3>
+        <button class="card" data-mood="neon"><b>Dark · Moody · Neon</b><span>glow trails and shockwaves in the void</span></button>
+        <button class="card" data-mood="playful"><b>Bright · Colorful · Playful</b><span>bouncing shapes and confetti physics</span></button>
+        <button class="card" data-mood="minimal"><b>Minimal · Monochrome · Clean</b><span>thin geometry, negative space</span></button>
+        <button class="card" data-mood="organic"><b>Organic · Natural</b><span>smoke and water, drifting light</span></button>
+      </section>
+    </div>
+
+    <div class="go">
+      <button id="generate" disabled>GENERATE</button>
+      <button id="lucky">or roll a random combination</button>
+      <p class="hint">Space — play/pause · R — regenerate · F — fullscreen · Esc — menu</p>
+    </div>
+  </div>
+</div>
+
+<div id="stage" class="gone">
+  <canvas id="viz"></canvas>
+  <div class="hud" id="hud">
+    <div id="label">
+      <div id="labelText">—</div>
+      <div id="seedTag">—</div>
+    </div>
+    <div id="fps"></div>
+    <div id="controls">
+      <button class="cbtn" id="btnMenu" title="Back to menu (Esc)">
+        <svg viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg>
+      </button>
+      <button class="cbtn" id="btnPlay" title="Play / pause (Space)">
+        <svg viewBox="0 0 24 24" id="icoPlay" style="display:none"><path class="solid" d="M8.5 5.5v13l11-6.5z"/></svg>
+        <svg viewBox="0 0 24 24" id="icoPause"><path class="solid" d="M8 5.5h2.7v13H8zM13.3 5.5H16v13h-2.7z"/></svg>
+      </button>
+      <button class="cbtn" id="btnRegen" title="Regenerate — new seed (R)">
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3.6v5h-5"/></svg>
+      </button>
+      <button class="cbtn" id="btnFull" title="Fullscreen (F)">
+        <svg viewBox="0 0 24 24" id="icoExpand"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+        <svg viewBox="0 0 24 24" id="icoShrink" style="display:none"><path d="M4 9h5V4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ════════════════════════════════════════════════════════════════
+   OSCILLO — generative audio·visual instrument.
+   Single file, vanilla JS. All audio synthesized with Web Audio,
+   all visuals drawn on canvas, driven by the live audio signal.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── utilities ─────────────────────────────────────── */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const TAU=Math.PI*2;
+
+function mulberry32(a){
+  return function(){
+    a|=0;a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return((t^t>>>14)>>>0)/4294967296;
+  };
+}
+function makeRng(seed){
+  const f=mulberry32(seed);
+  return {
+    f,
+    range:(a,b)=>a+f()*(b-a),
+    int:(a,b)=>a+Math.floor(f()*(b-a+1)),
+    pick:arr=>arr[Math.floor(f()*arr.length)],
+    chance:p=>f()<p,
+    sign:()=>f()<0.5?-1:1,
+  };
+}
+
+/* seeded 2D value noise + fbm (for organic flow fields) */
+function makeNoise(seed){
+  const r=mulberry32(seed);
+  const perm=new Uint8Array(512), vals=new Float32Array(256);
+  const p=[...Array(256).keys()];
+  for(let i=255;i>0;i--){const j=(r()*(i+1))|0;const t=p[i];p[i]=p[j];p[j]=t;}
+  for(let i=0;i<512;i++)perm[i]=p[i&255];
+  for(let i=0;i<256;i++)vals[i]=r()*2-1;
+  function n2(x,y){
+    const xi=Math.floor(x),yi=Math.floor(y);
+    const xf=x-xi,yf=y-yi;
+    const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);
+    const X=xi&255,Y=yi&255;
+    const aa=vals[perm[(perm[X]+Y)&255]],   ba=vals[perm[(perm[(X+1)&255]+Y)&255]];
+    const ab=vals[perm[(perm[X]+Y+1)&255]], bb=vals[perm[(perm[(X+1)&255]+Y+1)&255]];
+    return lerp(lerp(aa,ba,u),lerp(ab,bb,u),v);
+  }
+  return {
+    n2,
+    fbm2:(x,y)=>n2(x,y)*0.65+n2(x*2.7+31.4,y*2.7+17.7)*0.35,
+  };
+}
+
+/* ── music metadata ────────────────────────────────── */
+const STYLE_META={
+  ambient:   {label:"Ambient",    energy:0.22, beat:false},
+  edm:       {label:"Electronic", energy:1.00, beat:true },
+  orchestral:{label:"Orchestral", energy:0.62, beat:true },
+  lofi:      {label:"Lo-fi",      energy:0.45, beat:true },
+};
+const MOOD_META={
+  neon:    {label:"Dark Neon"},
+  playful: {label:"Bright Playful"},
+  minimal: {label:"Minimal Mono"},
+  organic: {label:"Organic Natural"},
+};
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+
+/* ════════════════════════════════════════════════════
+   AUDIO ENGINE (skeleton — style generators land next)
+   ════════════════════════════════════════════════════ */
+class AudioEngine{
+  constructor(){
+    this.ctx=null;
+    this.running=false;
+    this.paused=false;
+    this.events=[];          // {t, type, ...} timestamped in audio-clock time
+    this.gen=null;           // current style generator
+    this.genNodes=[];        // nodes to disconnect on teardown
+    this.sustained=[];       // sources that never self-stop
+    this.generation=0;
+    this.info={bpm:0,style:null};
+    // analysis state
+    this.f={level:0,bass:0,mid:0,treb:0};
+    this.norm={level:.25,bass:.25,mid:.25,treb:.25};
+  }
+
+  ensureCtx(){
+    if(this.ctx) return;
+    const AC=window.AudioContext||window.webkitAudioContext;
+    this.ctx=new AC();
+    const c=this.ctx;
+    // persistent master chain: styleAmp → comp → analyser → master → out
+    this.styleAmp=c.createGain();
+    this.comp=c.createDynamicsCompressor();
+    this.comp.threshold.value=-18;this.comp.knee.value=12;
+    this.comp.ratio.value=4;this.comp.attack.value=0.004;this.comp.release.value=0.22;
+    this.analyser=c.createAnalyser();
+    this.analyser.fftSize=2048;
+    this.analyser.smoothingTimeConstant=0.5;
+    this.master=c.createGain();this.master.gain.value=0.85;
+    this.styleAmp.connect(this.comp).connect(this.analyser).connect(this.master).connect(c.destination);
+    this.freqData=new Uint8Array(this.analyser.frequencyBinCount);
+    this.timeData=new Uint8Array(this.analyser.fftSize);
+    this.binHz=c.sampleRate/2/this.analyser.frequencyBinCount;
+  }
+
+  /* start a style. Generators are registered in AudioEngine.styles. */
+  start(style,seed){
+    this.ensureCtx();
+    this.stop(true);
+    const gen=this.generation=this.generation+1;
+    this.ctx.resume();
+    this.styleAmp.gain.cancelScheduledValues(0);
+    this.styleAmp.gain.setValueAtTime(0.0001,this.ctx.currentTime);
+    this.styleAmp.gain.linearRampToValueAtTime(1,this.ctx.currentTime+0.25);
+    this.rng=makeRng(seed);
+    this.events=[];
+    this.info={bpm:0,style};
+    const factory=AudioEngine.styles[style];
+    this.gen=factory?factory(this,this.rng):null;
+    this.stepIdx=0;
+    this.nextTime=this.ctx.currentTime+0.12;
+    this.running=true;
+    this.paused=false;
+    this.timer=setInterval(()=>this.tick(gen),80);
+    this.tick(gen);
+  }
+
+  tick(gen){
+    if(!this.running||gen!==this.generation||!this.gen) return;
+    const lookahead=document.hidden?1.9:0.35;
+    const limit=this.ctx.currentTime+lookahead;
+    let guard=0;
+    while(this.nextTime<limit&&guard++<600){
+      this.gen.step(this.nextTime,this.stepIdx);
+      this.nextTime+=this.gen.stepDur;
+      this.stepIdx++;
+    }
+  }
+
+  stop(fast){
+    this.running=false;
+    if(this.timer){clearInterval(this.timer);this.timer=null;}
+    if(!this.ctx) return;
+    const t=this.ctx.currentTime;
+    if(this.styleAmp){
+      this.styleAmp.gain.cancelScheduledValues(t);
+      this.styleAmp.gain.setValueAtTime(this.styleAmp.gain.value,t);
+      this.styleAmp.gain.linearRampToValueAtTime(0.0001,t+(fast?0.08:0.4));
+    }
+    const nodes=this.genNodes,sus=this.sustained;
+    this.genNodes=[];this.sustained=[];
+    setTimeout(()=>{
+      for(const s of sus){try{s.stop();}catch(e){}}
+      for(const n of nodes){try{n.disconnect();}catch(e){}}
+    },fast?120:450);
+    this.gen=null;
+    this.events=[];
+  }
+
+  setPaused(p){
+    if(!this.ctx) return;
+    this.paused=p;
+    if(p) this.ctx.suspend(); else this.ctx.resume();
+  }
+
+  /* per-frame feature extraction: adaptive-normalized band energies */
+  frame(dt){
+    const f=this.f;
+    if(!this.ctx||this.paused||!this.running){
+      const k=1-Math.exp(-dt*4);
+      f.level=lerp(f.level,0,k);f.bass=lerp(f.bass,0,k);
+      f.mid=lerp(f.mid,0,k);f.treb=lerp(f.treb,0,k);
+      return f;
+    }
+    this.analyser.getByteFrequencyData(this.freqData);
+    this.analyser.getByteTimeDomainData(this.timeData);
+    const band=(lo,hi)=>{
+      let a=Math.max(1,Math.floor(lo/this.binHz)),b=Math.min(this.freqData.length-1,Math.ceil(hi/this.binHz));
+      let s=0;for(let i=a;i<=b;i++)s+=this.freqData[i];
+      return s/((b-a+1)*255);
+    };
+    let rms=0;
+    for(let i=0;i<this.timeData.length;i+=4){const v=(this.timeData[i]-128)/128;rms+=v*v;}
+    rms=Math.sqrt(rms/(this.timeData.length/4));
+    const raw={level:rms*1.6,bass:band(28,180),mid:band(200,2000),treb:band(2200,9000)};
+    const decay=Math.pow(0.62,dt);            // normalizer relaxes ~0.6×/s
+    for(const k in raw){
+      this.norm[k]=Math.max(raw[k],this.norm[k]*decay,0.2);
+      const v=clamp(raw[k]/this.norm[k],0,1);
+      const rate=v>f[k]?22:6;                 // fast attack, slow release
+      f[k]=lerp(f[k],v,1-Math.exp(-dt*rate));
+    }
+    return f;
+  }
+
+  /* hand due events (scheduled time reached in the audio clock) to visuals */
+  takeEvents(){
+    if(!this.ctx||this.events.length===0) return AudioEngine.EMPTY;
+    const now=this.ctx.currentTime,out=[],keep=[];
+    for(const e of this.events){
+      if(e.t<=now){ if(e.t>now-0.3) out.push(e); }
+      else keep.push(e);
+    }
+    this.events=keep;
+    return out;
+  }
+}
+AudioEngine.EMPTY=[];
+AudioEngine.styles={}; // filled in by the style generator section
+
+/* ════════════════════════════════════════════════════
+   VISUAL ENGINE (skeleton — mood renderers land next)
+   ════════════════════════════════════════════════════ */
+class VisualEngine{
+  constructor(canvas){
+    this.cv=canvas;
+    this.g=canvas.getContext("2d");
+    this.mode=null;
+    this.W=0;this.H=0;this.dpr=1;
+    this.quality=1;
+    this.t=0;
+    addEventListener("resize",()=>this.fit());
+    this.fit();
+  }
+  fit(){
+    const w=innerWidth,h=innerHeight;
+    const d=Math.min(devicePixelRatio||1,1.6);
+    this.W=w;this.H=h;this.dpr=d;
+    this.cv.width=Math.round(w*d);
+    this.cv.height=Math.round(h*d);
+    this.g.setTransform(d,0,0,d,0,0);
+    if(this.mode&&this.mode.resize)this.mode.resize(w,h);
+    if(this.mode)this.clearTo(this.mode.bg||"#000");
+  }
+  clearTo(color){
+    this.g.save();
+    this.g.setTransform(1,0,0,1,0,0);
+    this.g.globalCompositeOperation="source-over";
+    this.g.fillStyle=color;
+    this.g.fillRect(0,0,this.cv.width,this.cv.height);
+    this.g.restore();
+  }
+  start(mood,music,seed){
+    this.t=0;
+    const factory=VisualEngine.modes[mood];
+    this.mode=factory?factory(this,makeRng(seed),music):null;
+    if(this.mode)this.clearTo(this.mode.bg||"#000");
+  }
+  stop(){this.mode=null;}
+  frame(dt,f,events){
+    if(!this.mode)return;
+    this.t+=dt;
+    this.mode.frame(dt,f,events,this.t);
+  }
+}
+VisualEngine.modes={}; // filled in by the mood renderer section
+
+/* ════════════════════════════════════════════════════
+   APP — screens, selection state, transport, HUD
+   ════════════════════════════════════════════════════ */
+const $=id=>document.getElementById(id);
+const els={
+  menu:$("menu"),stage:$("stage"),hud:$("hud"),
+  label:$("labelText"),seed:$("seedTag"),fps:$("fps"),
+  gen:$("generate"),lucky:$("lucky"),
+  play:$("btnPlay"),regen:$("btnRegen"),full:$("btnFull"),back:$("btnMenu"),
+  icoPlay:$("icoPlay"),icoPause:$("icoPause"),
+  icoExpand:$("icoExpand"),icoShrink:$("icoShrink"),
+};
+
+const audio=new AudioEngine();
+const viz=new VisualEngine($("viz"));
+
+const app={
+  style:null,mood:null,seed:0,
+  active:false,playing:false,raf:0,
+  showFps:false,
+  frameEma:16.7,fpsAccum:0,fpsCount:0,fpsClock:0,
+  lastTs:0,
+};
+
+/* selection cards */
+for(const card of document.querySelectorAll(".card")){
+  card.addEventListener("click",()=>{
+    const kind=card.dataset.style?"style":"mood";
+    app[kind]=card.dataset[kind];
+    for(const c of document.querySelectorAll(`.card[data-${kind}]`))c.classList.toggle("sel",c===card);
+    els.gen.disabled=!(app.style&&app.mood);
+  });
+}
+els.lucky.addEventListener("click",()=>{
+  const styles=Object.keys(STYLE_META),moods=Object.keys(MOOD_META);
+  const s=styles[Math.floor(Math.random()*styles.length)];
+  const m=moods[Math.floor(Math.random()*moods.length)];
+  document.querySelector(`.card[data-style="${s}"]`).click();
+  document.querySelector(`.card[data-mood="${m}"]`).click();
+  begin();
+});
+els.gen.addEventListener("click",()=>{ if(app.style&&app.mood) begin(); });
+
+function newSeed(){return (Math.random()*0xffffffff)>>>0;}
+
+function begin(seed){
+  app.seed=seed>>>0||newSeed();
+  audio.start(app.style,app.seed);
+  const meta=STYLE_META[app.style];
+  viz.start(app.mood,{name:app.style,energy:meta.energy,beat:meta.beat,bpm:audio.info.bpm},(app.seed^0x9e3779b9)>>>0);
+  els.label.textContent=`${meta.label} · ${MOOD_META[app.mood].label}`;
+  els.seed.textContent="seed "+app.seed.toString(16).padStart(8,"0");
+  els.menu.classList.add("gone");
+  els.stage.classList.remove("gone");
+  app.active=true;app.playing=true;
+  setPlayIcon(true);
+  pokeHud();
+  if(!app.raf){app.lastTs=performance.now();app.raf=requestAnimationFrame(loop);}
+}
+
+function setPlayIcon(playing){
+  els.icoPlay.style.display=playing?"none":"";
+  els.icoPause.style.display=playing?"":"none";
+}
+function togglePlay(){
+  if(!app.active)return;
+  app.playing=!app.playing;
+  audio.setPaused(!app.playing);
+  setPlayIcon(app.playing);
+  pokeHud();
+}
+function regenerate(){
+  if(!app.active)return;
+  if(!app.playing){app.playing=true;audio.setPaused(false);setPlayIcon(true);}
+  begin();
+}
+function toMenu(){
+  app.active=false;app.playing=false;
+  audio.stop(false);
+  viz.stop();
+  els.stage.classList.add("gone");
+  els.menu.classList.remove("gone");
+  els.stage.classList.remove("hidecursor");
+}
+els.play.addEventListener("click",togglePlay);
+els.regen.addEventListener("click",()=>regenerate());
+els.back.addEventListener("click",toMenu);
+
+/* fullscreen */
+function toggleFull(){
+  if(document.fullscreenElement){document.exitFullscreen().catch(()=>{});}
+  else{document.documentElement.requestFullscreen().catch(()=>{});}
+}
+els.full.addEventListener("click",toggleFull);
+document.addEventListener("fullscreenchange",()=>{
+  const fs=!!document.fullscreenElement;
+  els.icoExpand.style.display=fs?"none":"";
+  els.icoShrink.style.display=fs?"":"none";
+});
+
+/* keyboard */
+addEventListener("keydown",e=>{
+  if(e.repeat)return;
+  if(e.code==="Space"&&app.active){e.preventDefault();togglePlay();}
+  else if(e.code==="KeyR"&&app.active)regenerate();
+  else if(e.code==="KeyF"&&app.active)toggleFull();
+  else if(e.code==="KeyD"&&app.active){app.showFps=!app.showFps;els.fps.style.display=app.showFps?"block":"none";}
+  else if(e.code==="Escape"&&app.active&&!document.fullscreenElement)toMenu();
+});
+
+/* HUD auto-hide */
+let hudTimer=0;
+function pokeHud(){
+  els.hud.classList.remove("hidden");
+  els.stage.classList.remove("hidecursor");
+  clearTimeout(hudTimer);
+  hudTimer=setTimeout(()=>{
+    if(app.active&&app.playing){
+      els.hud.classList.add("hidden");
+      els.stage.classList.add("hidecursor");
+    }
+  },3200);
+}
+for(const ev of["mousemove","pointerdown","touchstart"])
+  els.stage.addEventListener(ev,pokeHud,{passive:true});
+
+/* main loop: audio features + due events drive the visuals */
+function loop(ts){
+  if(!app.active){app.raf=0;return;}
+  const dt=clamp((ts-app.lastTs)/1000,0.001,0.05);
+  app.lastTs=ts;
+  const f=audio.frame(dt);
+  const evs=app.playing?audio.takeEvents():AudioEngine.EMPTY;
+  viz.frame(dt,f,evs);
+  /* fps meter + adaptive quality */
+  app.frameEma=lerp(app.frameEma,dt*1000,0.05);
+  app.fpsClock+=dt;app.fpsCount++;
+  if(app.fpsClock>=0.5){
+    if(app.showFps)els.fps.textContent=`${Math.round(1000/app.frameEma)} fps`;
+    app.fpsClock=0;app.fpsCount=0;
+  }
+  if(app.frameEma>21&&viz.quality>0.55){
+    viz.quality*=0.8;app.frameEma=16.7;
+    if(viz.mode&&viz.mode.applyQuality)viz.mode.applyQuality(viz.quality);
+  }
+  app.raf=requestAnimationFrame(loop);
+}
+
+/* debug handle for console-driven testing */
+window.OSC={app,audio,viz,begin,
+  debug(style,mood,seed){
+    app.style=style;app.mood=mood;
+    begin(seed);
+  },
+};
+</script>
+</body>
+</html>
