@@ -1633,6 +1633,16 @@ els.gen.addEventListener("click",()=>{ if(app.style&&app.mood) begin(); });
 
 function newSeed(){return (Math.random()*0xffffffff)>>>0;}
 
+/* ── shareable seed links ──────────────────────────
+   The URL hash mirrors the current piece (#style-mood-seedhex),
+   so any generation can be bookmarked, shared, and replayed. */
+function parseHash(){
+  const m=/^#([a-z]+)-([a-z]+)-([0-9a-f]{8})$/.exec((location.hash||"").toLowerCase());
+  return m&&STYLE_META[m[1]]&&MOOD_META[m[2]]
+    ?{style:m[1],mood:m[2],seed:parseInt(m[3],16)>>>0}
+    :null;
+}
+
 function begin(seed){
   app.seed=seed>>>0||newSeed();
   viz.quality=1;app.frameEma=16.7;
@@ -1756,6 +1766,36 @@ window.OSC={app,audio,viz,begin,
     begin(seed);
   },
 };
+
+/* deep link: a valid #style-mood-seed hash skips the menu and
+   launches that exact piece; anything else falls back to the menu */
+const deepLink=parseHash();
+if(deepLink){
+  document.querySelector(`.card[data-style="${deepLink.style}"]`).click();
+  document.querySelector(`.card[data-mood="${deepLink.mood}"]`).click();
+  begin(deepLink.seed);
+  /* the context was created before any user gesture (maybe even in a
+     hidden tab), so autoplay policy — or a device error — can leave it
+     unable to run. First real interaction: resume it, the normal
+     autoplay unlock. If a later interaction finds it still stuck, the
+     context is dead: rebuild it in-gesture and replay the same seed. */
+  let resumeTried=false;
+  const drop=()=>{
+    removeEventListener("pointerdown",unlock);
+    removeEventListener("keydown",unlock);
+  };
+  const unlock=()=>{
+    if(audio.ctx.state==="running"){drop();return;}
+    if(!app.active||!app.playing||audio.paused)return;
+    if(!resumeTried){resumeTried=true;audio.ctx.resume();return;}
+    try{audio.ctx.close();}catch(e){}
+    audio.ctx=null;
+    begin(app.seed);
+    drop();
+  };
+  addEventListener("pointerdown",unlock);
+  addEventListener("keydown",unlock);
+}
 </script>
 </body>
 </html>
