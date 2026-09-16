@@ -125,6 +125,14 @@ h1{
 .cbtn svg{width:20px;height:20px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .cbtn svg .solid{fill:#fff;stroke:none}
 #btnPlay{background:rgba(255,255,255,.10)}
+#linkField{
+  position:absolute;bottom:92px;left:50%;transform:translateX(-50%);
+  display:none;width:min(480px,84vw);padding:10px 16px;
+  border-radius:999px;border:1px solid rgba(255,255,255,.14);
+  background:rgba(12,12,18,.6);backdrop-filter:blur(14px);
+  color:#fff;font:inherit;font-size:12.5px;text-align:center;
+  pointer-events:auto;outline:none;
+}
 </style>
 </head>
 <body>
@@ -179,12 +187,18 @@ h1{
       <button class="cbtn" id="btnRegen" title="Regenerate — new seed (R)">
         <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3.6v5h-5"/></svg>
       </button>
+      <button class="cbtn" id="btnLink" title="Copy link to this piece">
+        <svg viewBox="0 0 24 24" id="icoLink"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <svg viewBox="0 0 24 24" id="icoCheck" style="display:none"><path d="M5 12.5l4.6 4.6L19.5 6.8"/></svg>
+      </button>
       <button class="cbtn" id="btnFull" title="Fullscreen (F)">
         <svg viewBox="0 0 24 24" id="icoExpand"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
         <svg viewBox="0 0 24 24" id="icoShrink" style="display:none"><path d="M4 9h5V4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
       </button>
     </div>
   </div>
+  <!-- clipboard fallback; outside the hud so auto-hide can't take it -->
+  <input id="linkField" type="text" readonly spellcheck="false" aria-label="Link to this piece">
 </div>
 
 <script>
@@ -1597,8 +1611,10 @@ const els={
   label:$("labelText"),seed:$("seedTag"),fps:$("fps"),
   gen:$("generate"),lucky:$("lucky"),
   play:$("btnPlay"),regen:$("btnRegen"),full:$("btnFull"),back:$("btnMenu"),
+  link:$("btnLink"),linkField:$("linkField"),
   icoPlay:$("icoPlay"),icoPause:$("icoPause"),
   icoExpand:$("icoExpand"),icoShrink:$("icoShrink"),
+  icoLink:$("icoLink"),icoCheck:$("icoCheck"),
 };
 
 const audio=new AudioEngine();
@@ -1704,6 +1720,38 @@ document.addEventListener("fullscreenchange",()=>{
   const fs=!!document.fullscreenElement;
   els.icoExpand.style.display=fs?"none":"";
   els.icoShrink.style.display=fs?"":"none";
+});
+
+/* copy link: put the piece's URL on the clipboard; if the clipboard
+   is unavailable, surface the URL in a field for a manual copy */
+let linkTimer=0;
+function linkCopied(){
+  els.icoLink.style.display="none";
+  els.icoCheck.style.display="";
+  clearTimeout(linkTimer);
+  linkTimer=setTimeout(()=>{
+    els.icoLink.style.display="";
+    els.icoCheck.style.display="none";
+  },1500);
+}
+function showLinkField(url){
+  els.linkField.value=url;
+  els.linkField.style.display="block";
+  els.linkField.focus();
+  els.linkField.select();
+}
+function copyLink(){
+  if(!app.active)return;
+  const url=location.href;
+  try{
+    navigator.clipboard.writeText(url).then(linkCopied,()=>showLinkField(url));
+  }catch(e){showLinkField(url);}
+}
+els.link.addEventListener("click",copyLink);
+els.linkField.addEventListener("blur",()=>{els.linkField.style.display="none";});
+els.linkField.addEventListener("keydown",e=>{
+  e.stopPropagation();   /* keep Space/Esc/R away from the transport */
+  if(e.key==="Escape"||e.key==="Enter")els.linkField.blur();
 });
 
 /* clicked buttons must not keep focus, or Space re-activates them
