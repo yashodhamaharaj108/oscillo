@@ -329,6 +329,11 @@ class AudioEngine{
       this.nextTime+=this.gen.stepDur;
       this.stepIdx++;
     }
+    /* visuals paused (hidden tab) can't drain the queue — prune stale */
+    if(this.events.length>400){
+      const cut=this.ctx.currentTime-0.3;
+      this.events=this.events.filter(e=>e.t>cut);
+    }
   }
 
   stop(fast){
@@ -1684,14 +1689,24 @@ document.addEventListener("fullscreenchange",()=>{
   els.icoShrink.style.display=fs?"":"none";
 });
 
-/* keyboard */
+/* clicked buttons must not keep focus, or Space re-activates them
+   instead of toggling playback */
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");
+  if(b)b.blur();
+});
+
+/* keyboard (match e.key too — some environments send empty e.code) */
 addEventListener("keydown",e=>{
   if(e.repeat)return;
-  if(e.code==="Space"&&app.active){e.preventDefault();togglePlay();}
-  else if(e.code==="KeyR"&&app.active)regenerate();
-  else if(e.code==="KeyF"&&app.active)toggleFull();
-  else if(e.code==="KeyD"&&app.active){app.showFps=!app.showFps;els.fps.style.display=app.showFps?"block":"none";}
-  else if(e.code==="Escape"&&app.active&&!document.fullscreenElement)toMenu();
+  const k=e.code||"",key=e.key||"";
+  const is=(code,ch)=>k===code||key.toLowerCase()===ch;
+  if(!app.active)return;
+  if(is("Space"," ")){e.preventDefault();togglePlay();}
+  else if(is("KeyR","r"))regenerate();
+  else if(is("KeyF","f"))toggleFull();
+  else if(is("KeyD","d")){app.showFps=!app.showFps;els.fps.style.display=app.showFps?"block":"none";}
+  else if(is("Escape","escape")&&!document.fullscreenElement)toMenu();
 });
 
 /* HUD auto-hide */
