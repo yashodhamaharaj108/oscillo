@@ -1636,6 +1636,10 @@ function newSeed(){return (Math.random()*0xffffffff)>>>0;}
 /* ── shareable seed links ──────────────────────────
    The URL hash mirrors the current piece (#style-mood-seedhex),
    so any generation can be bookmarked, shared, and replayed. */
+function setHash(h){
+  /* replaceState keeps regenerations out of back/forward history */
+  try{history.replaceState(null,"",h||location.pathname+location.search);}catch(e){}
+}
 function parseHash(){
   const m=/^#([a-z]+)-([a-z]+)-([0-9a-f]{8})$/.exec((location.hash||"").toLowerCase());
   return m&&STYLE_META[m[1]]&&MOOD_META[m[2]]
@@ -1650,7 +1654,9 @@ function begin(seed){
   const meta=STYLE_META[app.style];
   viz.start(app.mood,{name:app.style,energy:meta.energy,beat:meta.beat,bpm:audio.info.bpm},(app.seed^0x9e3779b9)>>>0);
   els.label.textContent=`${meta.label} · ${MOOD_META[app.mood].label}`;
-  els.seed.textContent="seed "+app.seed.toString(16).padStart(8,"0");
+  const hex=app.seed.toString(16).padStart(8,"0");
+  els.seed.textContent="seed "+hex;
+  setHash(`#${app.style}-${app.mood}-${hex}`);
   els.menu.classList.add("gone");
   els.stage.classList.remove("gone");
   app.active=true;app.playing=true;
@@ -1682,6 +1688,7 @@ function toMenu(){
   els.stage.classList.add("gone");
   els.menu.classList.remove("gone");
   els.stage.classList.remove("hidecursor");
+  setHash("");   /* bare URL again, so a reload lands on the menu */
 }
 els.play.addEventListener("click",togglePlay);
 els.regen.addEventListener("click",()=>regenerate());
