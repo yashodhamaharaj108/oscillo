@@ -1664,7 +1664,8 @@ function parseHash(){
 }
 
 function begin(seed){
-  app.seed=seed>>>0||newSeed();
+  /* seed 0 is a real seed — only a missing argument means "pick one" */
+  app.seed=seed===undefined?newSeed():seed>>>0;
   viz.quality=1;app.frameEma=16.7;
   audio.start(app.style,app.seed);
   const meta=STYLE_META[app.style];
@@ -1822,13 +1823,29 @@ window.OSC={app,audio,viz,begin,
   },
 };
 
+/* launch a parsed link through the normal selection path, so the menu
+   cards reflect the piece if the user goes back */
+function launchLink(link){
+  document.querySelector(`.card[data-style="${link.style}"]`).click();
+  document.querySelector(`.card[data-mood="${link.mood}"]`).click();
+  begin(link.seed);
+}
+
+/* pasting a link into the address bar of a tab that already has Oscillo
+   open only changes the hash — the document never reloads — so pick that
+   up too. begin()'s replaceState doesn't fire hashchange, no loop. */
+addEventListener("hashchange",()=>{
+  const link=parseHash();
+  if(!link)return;
+  if(app.active&&link.style===app.style&&link.mood===app.mood&&link.seed===app.seed)return;
+  launchLink(link);
+});
+
 /* deep link: a valid #style-mood-seed hash skips the menu and
    launches that exact piece; anything else falls back to the menu */
 const deepLink=parseHash();
 if(deepLink){
-  document.querySelector(`.card[data-style="${deepLink.style}"]`).click();
-  document.querySelector(`.card[data-mood="${deepLink.mood}"]`).click();
-  begin(deepLink.seed);
+  launchLink(deepLink);
   /* the context was created before any user gesture (maybe even in a
      hidden tab), so autoplay policy — or a device error — can leave it
      unable to run. First real interaction: resume it, the normal
