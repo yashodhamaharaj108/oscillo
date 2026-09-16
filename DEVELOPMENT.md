@@ -39,6 +39,11 @@ Open DevTools (F12) and use the `window.OSC` handle:
 - **Seeds are reproducible.** The HUD shows the current seed; replay any piece
   exactly with `OSC.debug(style, mood, 0xTHESEED)`. If something looks or
   sounds broken, save the seed — it's a perfect bug report.
+- **Every piece has a URL.** The hash mirrors what's playing —
+  `#edm-neon-a4f3c210` (style · mood · 8-hex seed) — so the link button in the
+  HUD, or just copying the address bar, is the quickest bug report of all.
+  Opening such a link skips the menu and launches that exact piece. Updates
+  use `replaceState`, so regenerating never fills up browser history.
 - **Press `D`** for a live fps meter. Keep it ≥ ~55; an adaptive-quality
   governor trims particle counts automatically on slow machines.
 - **Audio health:** `OSC.audio.comp.reduction` in the console should sit
