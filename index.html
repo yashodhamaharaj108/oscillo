@@ -467,16 +467,21 @@ Object.assign(AudioEngine.prototype,{
     }
     return b;
   },
-  /* sparse dust impulses + faint hiss, looped (lo-fi vinyl bed) */
+  /* sparse dust impulses + faint hiss, looped (lo-fi vinyl bed).
+     Softening is baked in with a one-pole smoother — feeding this
+     kind of looped impulse train through a live BiquadFilter proved
+     numerically unstable in Chromium, so no filter node is used. */
   crackleBuf(){
     if(!this._cb){
       const c=this.ctx,len=(c.sampleRate*2.2)|0;
       const b=c.createBuffer(1,len,c.sampleRate),d=b.getChannelData(0);
       const r=mulberry32(0xD057D057);
+      let sm=0;
       for(let i=0;i<len;i++){
         let v=(r()*2-1)*0.012;                       // hiss floor
         if(r()<0.0011){v+=(r()*2-1)*Math.pow(r(),1.5)*1.2;} // dust tick
-        d[i]=v;
+        sm+=0.45*(v-sm);                             // ~5kHz one-pole
+        d[i]=sm*1.4;
       }
       this._cb=b;
     }
@@ -784,7 +789,7 @@ AudioEngine.styles.orchestral=function(E,r){
   const bpm=r.int(70,86),spb=60/bpm,stepDur=spb/2,barDur=spb*4;
   E.info.bpm=bpm;
   const swell=E.reg(E.gainN(0.7));
-  const bus=E.reg(E.gainN(0.95));swell.connect(bus);bus.connect(out);
+  const bus=E.reg(E.gainN(1.12));swell.connect(bus);bus.connect(out);
   const verb=E.reg(c.createConvolver());verb.buffer=E.makeImpulse(4.2,2.3);
   const vRet=E.reg(E.gainN(0.4));verb.connect(vRet);vRet.connect(out);
   const vSend=E.reg(E.gainN(1));vSend.connect(verb);
@@ -951,12 +956,12 @@ AudioEngine.styles.lofi=function(E,r){
   const rechordAt=r.pick([10,11,8]);
   const pent=[0,2,4,7,9];
 
-  /* vinyl bed */
+  /* vinyl bed (pre-filtered buffer — see crackleBuf) */
   {
     const s=c.createBufferSource();s.buffer=E.crackleBuf();s.loop=true;
-    const lp=E.filt("lowpass",5200,0.5),g=E.gainN(r.range(0.5,0.9));
-    s.connect(lp);lp.connect(g);g.connect(bus);
-    s.start();E.sustained.push(s);E.reg(lp);E.reg(g);
+    const g=E.gainN(r.range(0.5,0.9));
+    s.connect(g);g.connect(bus);
+    s.start();E.sustained.push(s);E.reg(g);
   }
   function keysChord(t,deg,dur,vel){
     const midis=chordMidis(rootM,scale,deg,4);
@@ -1088,6 +1093,9 @@ class VisualEngine{
   stop(){this.mode=null;}
   frame(dt,f,events){
     if(!this.mode)return;
+    /* self-heal if the viewport size changed without a resize event
+       (e.g. embedded panes that lay out at 0x0 before first show) */
+    if((this.W!==innerWidth||this.H!==innerHeight)&&innerWidth>0&&innerHeight>0)this.fit();
     this.t+=dt;
     this.mode.frame(dt,f,events,this.t);
   }
@@ -1449,28 +1457,28 @@ VisualEngine.modes.minimal=function(V,r,music){
 VisualEngine.modes.organic=function(V,r,music){
   const g=V.g,energy=music.energy;
   const pal=r.pick([
-    {bg:"#071619",cols:["#2E7D78","#3B9D8F","#7FC7B2","#C9B98F","#4A7F9B"],mote:"#EAF2D9"},
-    {bg:"#0C140B",cols:["#5A7D4A","#8AA86B","#C2B280","#6B8F71","#A67C52"],mote:"#F2E9C9"},
-    {bg:"#0F1516",cols:["#7F9A94","#A3B5AE","#728881","#5D7370","#93A69B"],mote:"#EDF2EA"},
+    {bg:"#06171A",cols:["#0E8C7F","#17AE95","#3EC9A4","#C9A96A","#2377A8"],mote:"#EAF2D9"},
+    {bg:"#0B1509",cols:["#4E8C33","#7BAE45","#BCA85F","#3E8C5F","#A8742E"],mote:"#F2E9C9"},
+    {bg:"#0E1517",cols:["#4E8C84","#6FA895","#4E7791","#8CA86F","#37716B"],mote:"#EDF2EA"},
   ]);
   const noise=makeNoise((r.f()*0xffffffff)>>>0);
   const sprites=pal.cols.map(c=>{
     const[cr,cg,cb]=hexRgb(c);
     return spriteRadial(64,[
-      [0,`rgba(${cr},${cg},${cb},0.32)`],
-      [0.5,`rgba(${cr},${cg},${cb},0.12)`],
+      [0,`rgba(${cr},${cg},${cb},0.30)`],
+      [0.5,`rgba(${cr},${cg},${cb},0.11)`],
       [1,`rgba(${cr},${cg},${cb},0)`],
     ]);
   });
   const[mr,mg2,mb]=hexRgb(pal.mote);
   const moteSpr=spriteRadial(20,[[0,`rgba(${mr},${mg2},${mb},0.9)`],[1,`rgba(${mr},${mg2},${mb},0)`]]);
   const[br,bgn,bb]=hexRgb(pal.bg);
-  const N=Math.round((480+280*energy)*V.quality);
+  const N=Math.round((560+320*energy)*V.quality);
   const ps=[];
   for(let i=0;i<N;i++)ps.push({
     x:r.f(),y:r.f(),vx:0,vy:0,
     ci:r.int(0,pal.cols.length-1),
-    sz:r.range(16,46),al:r.range(0.35,0.8),
+    sz:r.range(20,52),al:r.range(0.35,0.7),
   });
   for(const p of ps){p.x*=innerWidth;p.y*=innerHeight;}
   const motes=[],ripples=[];
@@ -1517,7 +1525,7 @@ VisualEngine.modes.organic=function(V,r,music){
       const strength=(16+drive*130+surge*70)*(0.45+energy*0.75);
       /* long trails */
       g.globalAlpha=1;g.globalCompositeOperation="source-over";
-      g.fillStyle=`rgba(${br},${bgn},${bb},0.05)`;
+      g.fillStyle=`rgba(${br},${bgn},${bb},0.075)`;
       g.fillRect(0,0,W,H);
       g.globalCompositeOperation="lighter";
       const blend=1-Math.exp(-dt*2.2);
@@ -1540,7 +1548,7 @@ VisualEngine.modes.organic=function(V,r,music){
         if(p.x<-m)p.x=W+m-2;if(p.x>W+m)p.x=-m+2;
         if(p.y<-m)p.y=H+m-2;if(p.y>H+m)p.y=-m+2;
         const s=p.sz*(0.8+drive*0.5);
-        g.globalAlpha=p.al*(0.4+f.level*0.6);
+        g.globalAlpha=p.al*(0.33+f.level*0.45);
         g.drawImage(sprites[p.ci],p.x-s/2,p.y-s/2,s,s);
       }
       /* ripple rings (very soft) */
@@ -1569,7 +1577,7 @@ VisualEngine.modes.organic=function(V,r,music){
       g.globalCompositeOperation="source-over";
     },
     applyQuality(q){
-      const n=Math.round((480+280*energy)*q);
+      const n=Math.round((560+320*energy)*q);
       if(ps.length>n)ps.length=n;
     },
   };
@@ -1622,6 +1630,7 @@ function newSeed(){return (Math.random()*0xffffffff)>>>0;}
 
 function begin(seed){
   app.seed=seed>>>0||newSeed();
+  viz.quality=1;app.frameEma=16.7;
   audio.start(app.style,app.seed);
   const meta=STYLE_META[app.style];
   viz.start(app.mood,{name:app.style,energy:meta.energy,beat:meta.beat,bpm:audio.info.bpm},(app.seed^0x9e3779b9)>>>0);
@@ -1710,7 +1719,9 @@ function loop(ts){
   const evs=app.playing?audio.takeEvents():AudioEngine.EMPTY;
   viz.frame(dt,f,evs);
   /* fps meter + adaptive quality */
-  app.frameEma=lerp(app.frameEma,dt*1000,0.05);
+  /* ignore clamped/hidden-tab deltas so throttling can't fake "slow" */
+  if(dt<0.045&&document.visibilityState==="visible")
+    app.frameEma=lerp(app.frameEma,dt*1000,0.05);
   app.fpsClock+=dt;app.fpsCount++;
   if(app.fpsClock>=0.5){
     if(app.showFps)els.fps.textContent=`${Math.round(1000/app.frameEma)} fps`;
