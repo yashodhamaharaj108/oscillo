@@ -1,0 +1,7 @@
+# GitHub Pages (Jekyll) build config.
+# Keep repository documentation out of the published site —
+# these files stay visible on github.com but are not deployed
+# to oscillo.lekishamaharaj.com.
+exclude:
+  - README.md
+  - DEVELOPMENT.md
