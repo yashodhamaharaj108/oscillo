@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="dark">
+<meta name="description" content="A generative audio·visual instrument. Pick a sound and a mood — every note and every pixel is synthesized live in your browser.">
+<meta name="theme-color" content="#08080d">
 <title>Oscillo — generative audio·visual instrument</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%23cfc9ff' stroke-width='2'/%3E%3Cpath d='M6 16h4l2-6 4 12 3-9 2 3h5' fill='none' stroke='%23cfc9ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
@@ -45,6 +47,9 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 }
 @keyframes drift1{from{transform:translate(0,0) scale(1)}to{transform:translate(14vw,10vh) scale(1.15)}}
 @keyframes drift2{from{transform:translate(0,0) scale(1.1)}to{transform:translate(-12vw,-8vh) scale(.95)}}
+/* no point animating two huge blurred layers behind the stage */
+#menu.gone::before,#menu.gone::after{animation-play-state:paused}
+@media (prefers-reduced-motion:reduce){#menu::before,#menu::after{animation:none}}
 
 .wrap{position:relative;max-width:980px;width:100%;padding:56px 28px 40px}
 h1{
@@ -111,7 +116,7 @@ h1{
 #controls{
   position:absolute;bottom:26px;left:50%;transform:translateX(-50%);
   display:flex;gap:6px;padding:8px;border-radius:999px;
-  background:rgba(12,12,18,.42);backdrop-filter:blur(14px);
+  background:rgba(12,12,18,.42);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
   border:1px solid rgba(255,255,255,.09);
   pointer-events:auto;
 }
@@ -138,17 +143,17 @@ h1{
     <div class="cols">
       <section>
         <h3>01 · Music style</h3>
-        <button class="card" data-style="ambient"><b>Ambient / Atmospheric</b><span>weightless pads, endless space, no pulse</span></button>
-        <button class="card" data-style="edm"><b>Electronic / EDM</b><span>four on the floor, arps, rising energy</span></button>
-        <button class="card" data-style="orchestral"><b>Orchestral / Cinematic</b><span>swelling strings, distant drums, melody</span></button>
-        <button class="card" data-style="lofi"><b>Lo-fi / Chill</b><span>dusty keys, lazy swing, warm and mellow</span></button>
+        <button class="card" aria-pressed="false" data-style="ambient"><b>Ambient / Atmospheric</b><span>weightless pads, endless space, no pulse</span></button>
+        <button class="card" aria-pressed="false" data-style="edm"><b>Electronic / EDM</b><span>four on the floor, arps, rising energy</span></button>
+        <button class="card" aria-pressed="false" data-style="orchestral"><b>Orchestral / Cinematic</b><span>swelling strings, distant drums, melody</span></button>
+        <button class="card" aria-pressed="false" data-style="lofi"><b>Lo-fi / Chill</b><span>dusty keys, lazy swing, warm and mellow</span></button>
       </section>
       <section>
         <h3>02 · Visual mood</h3>
-        <button class="card" data-mood="neon"><b>Dark · Moody · Neon</b><span>glow trails and shockwaves in the void</span></button>
-        <button class="card" data-mood="playful"><b>Bright · Colorful · Playful</b><span>bouncing shapes and confetti physics</span></button>
-        <button class="card" data-mood="minimal"><b>Minimal · Monochrome · Clean</b><span>thin geometry, negative space</span></button>
-        <button class="card" data-mood="organic"><b>Organic · Natural</b><span>smoke and water, drifting light</span></button>
+        <button class="card" aria-pressed="false" data-mood="neon"><b>Dark · Moody · Neon</b><span>glow trails and shockwaves in the void</span></button>
+        <button class="card" aria-pressed="false" data-mood="playful"><b>Bright · Colorful · Playful</b><span>bouncing shapes and confetti physics</span></button>
+        <button class="card" aria-pressed="false" data-mood="minimal"><b>Minimal · Monochrome · Clean</b><span>thin geometry, negative space</span></button>
+        <button class="card" aria-pressed="false" data-mood="organic"><b>Organic · Natural</b><span>smoke and water, drifting light</span></button>
       </section>
     </div>
 
@@ -161,7 +166,7 @@ h1{
 </div>
 
 <div id="stage" class="gone">
-  <canvas id="viz"></canvas>
+  <canvas id="viz" aria-hidden="true"></canvas>
   <div class="hud" id="hud">
     <div id="label">
       <div id="labelText">—</div>
@@ -169,19 +174,19 @@ h1{
     </div>
     <div id="fps"></div>
     <div id="controls">
-      <button class="cbtn" id="btnMenu" title="Back to menu (Esc)">
-        <svg viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg>
+      <button class="cbtn" id="btnMenu" title="Back to menu (Esc)" aria-label="Back to menu">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M14.5 6l-6 6 6 6"/></svg>
       </button>
-      <button class="cbtn" id="btnPlay" title="Play / pause (Space)">
-        <svg viewBox="0 0 24 24" id="icoPlay" style="display:none"><path class="solid" d="M8.5 5.5v13l11-6.5z"/></svg>
-        <svg viewBox="0 0 24 24" id="icoPause"><path class="solid" d="M8 5.5h2.7v13H8zM13.3 5.5H16v13h-2.7z"/></svg>
+      <button class="cbtn" id="btnPlay" title="Play / pause (Space)" aria-label="Pause">
+        <svg aria-hidden="true" viewBox="0 0 24 24" id="icoPlay" style="display:none"><path class="solid" d="M8.5 5.5v13l11-6.5z"/></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24" id="icoPause"><path class="solid" d="M8 5.5h2.7v13H8zM13.3 5.5H16v13h-2.7z"/></svg>
       </button>
-      <button class="cbtn" id="btnRegen" title="Regenerate — new seed (R)">
-        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3.6v5h-5"/></svg>
+      <button class="cbtn" id="btnRegen" title="Regenerate — new seed (R)" aria-label="Regenerate">
+        <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3.6v5h-5"/></svg>
       </button>
-      <button class="cbtn" id="btnFull" title="Fullscreen (F)">
-        <svg viewBox="0 0 24 24" id="icoExpand"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
-        <svg viewBox="0 0 24 24" id="icoShrink" style="display:none"><path d="M4 9h5V4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
+      <button class="cbtn" id="btnFull" title="Fullscreen (F)" aria-label="Fullscreen">
+        <svg aria-hidden="true" viewBox="0 0 24 24" id="icoExpand"><path d="M9 4H4v5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+        <svg aria-hidden="true" viewBox="0 0 24 24" id="icoShrink" style="display:none"><path d="M4 9h5V4M20 9h-5V4M15 20v-5h5M4 15h5v5"/></svg>
       </button>
     </div>
   </div>
@@ -267,13 +272,16 @@ class AudioEngine{
     this.running=false;
     this.paused=false;
     this.events=[];          // {t, type, ...} timestamped in audio-clock time
+    this.due=[];             // reused output buffer for takeEvents()
     this.gen=null;           // current style generator
+    this.out=null;           // current generation's fader (→ styleAmp)
     this.genNodes=[];        // nodes to disconnect on teardown
     this.sustained=[];       // sources that never self-stop
     this.generation=0;
     this.info={bpm:0,style:null};
     // analysis state
     this.f={level:0,bass:0,mid:0,treb:0};
+    this.raw={level:0,bass:0,mid:0,treb:0};
     this.norm={level:.25,bass:.25,mid:.25,treb:.25};
   }
 
@@ -282,7 +290,7 @@ class AudioEngine{
     const AC=window.AudioContext||window.webkitAudioContext;
     this.ctx=new AC();
     const c=this.ctx;
-    // persistent master chain: styleAmp → comp → analyser → master → out
+    // persistent master chain: (per-generation out) → styleAmp → comp → analyser → master → destination
     this.styleAmp=c.createGain();
     this.comp=c.createDynamicsCompressor();
     this.comp.threshold.value=-18;this.comp.knee.value=12;
@@ -295,6 +303,9 @@ class AudioEngine{
     this.freqData=new Uint8Array(this.analyser.frequencyBinCount);
     this.timeData=new Uint8Array(this.analyser.fftSize);
     this.binHz=c.sampleRate/2/this.analyser.frequencyBinCount;
+    /* analyser bin ranges for bass / mid / treble, computed once */
+    const bins=(lo,hi)=>[Math.max(1,Math.floor(lo/this.binHz)),Math.min(this.freqData.length-1,Math.ceil(hi/this.binHz))];
+    this.bassBins=bins(28,180);this.midBins=bins(200,2000);this.trebBins=bins(2200,9000);
   }
 
   /* start a style. Generators are registered in AudioEngine.styles. */
@@ -303,9 +314,14 @@ class AudioEngine{
     this.stop(true);
     const gen=this.generation=this.generation+1;
     this.ctx.resume();
-    this.styleAmp.gain.cancelScheduledValues(0);
-    this.styleAmp.gain.setValueAtTime(0.0001,this.ctx.currentTime);
-    this.styleAmp.gain.linearRampToValueAtTime(1,this.ctx.currentTime+0.25);
+    /* each generation plays into its own fader, so stop() can fade and cut
+       everything it made (even voices wired straight to `out`) without
+       fighting the next generation's fade-in */
+    const now=this.ctx.currentTime;
+    this.out=this.reg(this.gainN(0.0001));
+    this.out.connect(this.styleAmp);
+    this.out.gain.setValueAtTime(0.0001,now);
+    this.out.gain.linearRampToValueAtTime(1,now+0.25);
     this.rng=makeRng(seed);
     this.events=[];
     this.info={bpm:0,style};
@@ -341,10 +357,12 @@ class AudioEngine{
     if(this.timer){clearInterval(this.timer);this.timer=null;}
     if(!this.ctx) return;
     const t=this.ctx.currentTime;
-    if(this.styleAmp){
-      this.styleAmp.gain.cancelScheduledValues(t);
-      this.styleAmp.gain.setValueAtTime(this.styleAmp.gain.value,t);
-      this.styleAmp.gain.linearRampToValueAtTime(0.0001,t+(fast?0.08:0.4));
+    if(this.out){
+      const p=this.out.gain;
+      p.cancelScheduledValues(t);
+      p.setValueAtTime(p.value,t);
+      p.linearRampToValueAtTime(0.0001,t+(fast?0.08:0.4));
+      this.out=null;           // disconnected with the rest of genNodes below
     }
     const nodes=this.genNodes,sus=this.sustained;
     this.genNodes=[];this.sustained=[];
@@ -371,17 +389,17 @@ class AudioEngine{
       f.mid=lerp(f.mid,0,k);f.treb=lerp(f.treb,0,k);
       return f;
     }
+    const td=this.timeData;
     this.analyser.getByteFrequencyData(this.freqData);
-    this.analyser.getByteTimeDomainData(this.timeData);
-    const band=(lo,hi)=>{
-      let a=Math.max(1,Math.floor(lo/this.binHz)),b=Math.min(this.freqData.length-1,Math.ceil(hi/this.binHz));
-      let s=0;for(let i=a;i<=b;i++)s+=this.freqData[i];
-      return s/((b-a+1)*255);
-    };
+    this.analyser.getByteTimeDomainData(td);
     let rms=0;
-    for(let i=0;i<this.timeData.length;i+=4){const v=(this.timeData[i]-128)/128;rms+=v*v;}
-    rms=Math.sqrt(rms/(this.timeData.length/4));
-    const raw={level:rms*1.6,bass:band(28,180),mid:band(200,2000),treb:band(2200,9000)};
+    for(let i=0;i<td.length;i+=4){const v=(td[i]-128)/128;rms+=v*v;}
+    rms=Math.sqrt(rms/(td.length/4));
+    const raw=this.raw;                       // reused: no per-frame allocation
+    raw.level=rms*1.6;
+    raw.bass=this.band(this.bassBins);
+    raw.mid=this.band(this.midBins);
+    raw.treb=this.band(this.trebBins);
     const decay=Math.pow(0.62,dt);            // normalizer relaxes ~0.6×/s
     for(const k in raw){
       this.norm[k]=Math.max(raw[k],this.norm[k]*decay,0.2);
@@ -392,15 +410,28 @@ class AudioEngine{
     return f;
   }
 
-  /* hand due events (scheduled time reached in the audio clock) to visuals */
+  /* mean analyser magnitude (0..1) over an inclusive bin range [a,b] */
+  band([a,b]){
+    const d=this.freqData;
+    let s=0;for(let i=a;i<=b;i++)s+=d[i];
+    return s/((b-a+1)*255);
+  }
+
+  /* hand due events (scheduled time reached in the audio clock) to visuals.
+     Compacts the queue in place and reuses one output array — the result
+     is only valid until the next call (the rAF loop consumes it at once). */
   takeEvents(){
-    if(!this.ctx||this.events.length===0) return AudioEngine.EMPTY;
-    const now=this.ctx.currentTime,out=[],keep=[];
-    for(const e of this.events){
-      if(e.t<=now){ if(e.t>now-0.3) out.push(e); }
-      else keep.push(e);
+    const ev=this.events;
+    if(!this.ctx||ev.length===0) return AudioEngine.EMPTY;
+    const now=this.ctx.currentTime,out=this.due;
+    out.length=0;
+    let w=0;
+    for(let i=0;i<ev.length;i++){
+      const e=ev[i];
+      if(e.t>now) ev[w++]=e;
+      else if(e.t>now-0.3) out.push(e);
     }
-    this.events=keep;
+    ev.length=w;
     return out;
   }
 }
@@ -462,14 +493,22 @@ Object.assign(AudioEngine.prototype,{
     s.buffer=this.noiseBuf();s.loop=!!loop;
     return s;
   },
-  /* procedural room: exponentially decaying noise burst as convolver IR */
+  /* procedural room: exponentially decaying noise burst as convolver IR.
+     Deterministic per (sec,pow), so each IR is built once and shared —
+     rebuilding it stalled the main thread for tens of ms on every
+     Generate / Regenerate. A ConvolverNode copies the buffer it is given,
+     so sharing one AudioBuffer between generations is safe. */
   makeImpulse(sec,pow){
+    const key=sec+"|"+pow,cache=this._irs||(this._irs=new Map());
+    let b=cache.get(key);
+    if(b) return b;
     const c=this.ctx,len=Math.max(64,(sec*c.sampleRate)|0);
-    const b=c.createBuffer(2,len,c.sampleRate);
+    b=c.createBuffer(2,len,c.sampleRate);
     for(let ch=0;ch<2;ch++){
       const d=b.getChannelData(ch),r=mulberry32(0xC0FFEE+ch*77);
       for(let i=0;i<len;i++)d[i]=(r()*2-1)*Math.pow(1-i/len,pow);
     }
+    cache.set(key,b);
     return b;
   },
   /* sparse dust impulses + faint hiss, looped (lo-fi vinyl bed).
@@ -521,7 +560,7 @@ AudioEngine.styles={};
 
 /* ── AMBIENT: beatless — drone, slow pads, sparse FM bells ── */
 AudioEngine.styles.ambient=function(E,r){
-  const c=E.ctx,out=E.styleAmp;
+  const c=E.ctx,out=E.out;
   const bus=E.reg(E.gainN(1.25));bus.connect(out);
   const verb=E.reg(c.createConvolver());verb.buffer=E.makeImpulse(6.5,2.1);
   const vRet=E.reg(E.gainN(0.55));verb.connect(vRet);vRet.connect(out);
@@ -632,7 +671,7 @@ AudioEngine.styles.ambient=function(E,r){
 
 /* ── EDM: four-on-floor, arps, 8-bar sections that build & drop ── */
 AudioEngine.styles.edm=function(E,r){
-  const c=E.ctx,out=E.styleAmp;
+  const c=E.ctx,out=E.out;
   const bpm=r.int(124,132),spb=60/bpm,stepDur=spb/4;
   E.info.bpm=bpm;
   /* buses: kick+sub punch straight through; melodic bus gets sidechain pump */
@@ -790,7 +829,7 @@ AudioEngine.styles.edm=function(E,r){
 
 /* ── ORCHESTRAL: string swells, phrase melody, timpani ── */
 AudioEngine.styles.orchestral=function(E,r){
-  const c=E.ctx,out=E.styleAmp;
+  const c=E.ctx,out=E.out;
   const bpm=r.int(70,86),spb=60/bpm,stepDur=spb/2,barDur=spb*4;
   E.info.bpm=bpm;
   const swell=E.reg(E.gainN(0.7));
@@ -944,7 +983,7 @@ AudioEngine.styles.orchestral=function(E,r){
 
 /* ── LO-FI: swung dusty beat, warm keys, mellow bass ── */
 AudioEngine.styles.lofi=function(E,r){
-  const c=E.ctx,out=E.styleAmp;
+  const c=E.ctx,out=E.out;
   const bpm=r.int(74,84),spb=60/bpm,stepDur=spb/4;
   const swingShift=(r.range(0.54,0.6)-0.5)*spb;
   E.info.bpm=bpm;
@@ -1063,17 +1102,23 @@ AudioEngine.styles.lofi=function(E,r){
 class VisualEngine{
   constructor(canvas){
     this.cv=canvas;
-    this.g=canvas.getContext("2d");
+    /* every mood paints an opaque background, so an opaque canvas lets
+       the compositor skip blending it with the page each frame */
+    this.g=canvas.getContext("2d",{alpha:false});
     this.mode=null;
     this.W=0;this.H=0;this.dpr=1;
     this.quality=1;
     this.t=0;
-    addEventListener("resize",()=>this.fit());
+    /* resize events fire in bursts while dragging; reallocating the
+       backing store each time is wasteful — refit at most once per frame */
+    this.dirty=false;
+    addEventListener("resize",()=>{this.dirty=true;});
     this.fit();
   }
   fit(){
     const w=innerWidth,h=innerHeight;
     const d=Math.min(devicePixelRatio||1,1.6);
+    this.dirty=false;
     this.W=w;this.H=h;this.dpr=d;
     this.cv.width=Math.round(w*d);
     this.cv.height=Math.round(h*d);
@@ -1098,9 +1143,9 @@ class VisualEngine{
   stop(){this.mode=null;}
   frame(dt,f,events){
     if(!this.mode)return;
-    /* self-heal if the viewport size changed without a resize event
-       (e.g. embedded panes that lay out at 0x0 before first show) */
-    if((this.W!==innerWidth||this.H!==innerHeight)&&innerWidth>0&&innerHeight>0)this.fit();
+    /* pending resize, or a size change without a resize event (e.g.
+       embedded panes that lay out at 0x0 before first show) */
+    if((this.dirty||this.W!==innerWidth||this.H!==innerHeight)&&innerWidth>0&&innerHeight>0)this.fit();
     this.t+=dt;
     this.mode.frame(dt,f,events,this.t);
   }
@@ -1139,6 +1184,9 @@ VisualEngine.modes.neon=function(V,r,music){
     [1,`hsla(${h},100%,50%,0)`],
   ]));
   const sparkSpr=spriteRadial(28,[[0,"rgba(255,255,255,0.95)"],[0.4,`hsla(${hues[1]},100%,75%,0.5)`],[1,"hsla(0,0%,100%,0)"]]);
+  /* color strings built once, not re-parsed every frame */
+  const waveCol=hues.map(h=>`hsl(${h},100%,70%)`);
+  const trail=`rgba(2,1,8,${0.09+0.13*energy})`;
   const N=Math.round((230+230*energy)*V.quality);
   const ps=[];
   for(let i=0;i<N;i++)ps.push({
@@ -1190,7 +1238,7 @@ VisualEngine.modes.neon=function(V,r,music){
       /* trails */
       g.globalCompositeOperation="source-over";
       g.globalAlpha=1;
-      g.fillStyle=`rgba(2,1,8,${0.09+0.13*energy})`;
+      g.fillStyle=trail;
       g.fillRect(0,0,W,H);
       g.globalCompositeOperation="lighter";
       /* core */
@@ -1220,12 +1268,12 @@ VisualEngine.modes.neon=function(V,r,music){
       }
       if(f.treb>0.5&&sparks.length<160)burst(1+(f.treb*3|0),cx,cy,mn);
       /* shockwaves */
+      g.strokeStyle=waveCol[flip];
       for(let i=waves.length-1;i>=0;i--){
         const w=waves[i];
         w.r+=w.v*dt;w.a*=Math.exp(-dt*2.2);
         if(w.a<0.02){waves.splice(i,1);continue;}
         g.globalAlpha=w.a;
-        g.strokeStyle=`hsl(${hues[flip]},100%,70%)`;
         g.lineWidth=w.lw;
         g.beginPath();g.arc(cx,cy,w.r,0,TAU);g.stroke();
         g.globalAlpha=w.a*0.4;g.lineWidth=w.lw*3.5;
@@ -1313,16 +1361,20 @@ VisualEngine.modes.playful=function(V,r,music){
         g.beginPath();g.arc(x,y,s,0,TAU);g.fill();
       }
       g.globalAlpha=1;
-      /* confetti */
+      /* confetti — one setTransform per piece (canvas scale × translate ×
+         rotate, composed by hand) instead of save/translate/rotate/restore,
+         which copies the whole context state hundreds of times a frame */
+      const d=V.dpr;
       for(let i=conf.length-1;i>=0;i--){
         const c=conf[i];c.age+=dt;
         if(c.age>=c.life){conf.splice(i,1);continue;}
         c.vy+=620*dt;c.x+=c.vx*dt;c.y+=c.vy*dt;c.rot+=c.rv*dt;
-        g.save();g.translate(c.x,c.y);g.rotate(c.rot);
+        const cs=Math.cos(c.rot)*d,sn=Math.sin(c.rot)*d;
+        g.setTransform(cs,sn,-sn,cs,c.x*d,c.y*d);
         g.globalAlpha=Math.min(1,(c.life-c.age)*2);
         g.fillStyle=c.c;g.fillRect(-c.w/2,-c.h/2,c.w,c.h);
-        g.restore();
       }
+      g.setTransform(d,0,0,d,0,0);
       g.globalAlpha=1;
       if(f.treb>0.55&&conf.length<300)confetti(r.f()*W,-10,2,80);
       /* balls */
@@ -1347,11 +1399,13 @@ VisualEngine.modes.playful=function(V,r,music){
           g.beginPath();g.ellipse(b.x,floor+6,rr*hFac,rr*0.22*hFac,0,0,TAU);g.fill();
         }
         g.globalAlpha=1;g.fillStyle=b.c;
-        g.save();g.translate(b.x,b.y);g.rotate(b.shape?b.rot:0);g.scale(sx,sy);
+        /* scale × translate × rotate × squash, as one matrix */
+        const ang=b.shape?b.rot:0,cs=Math.cos(ang)*d,sn=Math.sin(ang)*d;
+        g.setTransform(cs*sx,sn*sx,-sn*sy,cs*sy,b.x*d,b.y*d);
         if(b.shape===0){g.beginPath();g.arc(0,0,rr,0,TAU);g.fill();}
         else if(b.shape===1){const s=rr*1.7;roundRect(g,-s/2,-s/2,s,s,s*0.28);g.fill();}
         else{g.beginPath();g.moveTo(0,-rr);g.lineTo(rr*0.9,rr*0.7);g.lineTo(-rr*0.9,rr*0.7);g.closePath();g.fill();}
-        g.restore();
+        g.setTransform(d,0,0,d,0,0);
       }
       g.globalAlpha=1;
     },
@@ -1429,14 +1483,17 @@ VisualEngine.modes.minimal=function(V,r,music){
         g.beginPath();g.arc(cx,cy,rr,rot[i],rot[i]+len);g.stroke();
         g.beginPath();g.arc(cx,cy,rr,rot[i]+Math.PI,rot[i]+Math.PI+len);g.stroke();
       }
-      /* spectrum dot row */
-      const nd=24,w=W*0.44;
+      /* spectrum dot row — one path, one fill */
+      const nd=24,w=W*0.44,dy=H*0.8;
+      g.globalAlpha=0.5;
+      g.beginPath();
       for(let i=0;i<nd;i++){
         const u=i/(nd-1);
         const v=u<0.33?lerp(f.bass,f.mid,u/0.33):u<0.66?lerp(f.mid,f.treb,(u-0.33)/0.33):f.treb*(1-(u-0.66)/0.51);
-        g.globalAlpha=0.5;
-        g.beginPath();g.arc(cx-w/2+u*w,H*0.8,0.8+v*mn*0.008,0,TAU);g.fill();
+        const dx=cx-w/2+u*w,rad=0.8+v*mn*0.008;
+        g.moveTo(dx+rad,dy);g.arc(dx,dy,rad,0,TAU);
       }
+      g.fill();
       /* rings */
       for(let i=rings.length-1;i>=0;i--){
         const q=rings[i];
@@ -1478,6 +1535,7 @@ VisualEngine.modes.organic=function(V,r,music){
   const[mr,mg2,mb]=hexRgb(pal.mote);
   const moteSpr=spriteRadial(20,[[0,`rgba(${mr},${mg2},${mb},0.9)`],[1,`rgba(${mr},${mg2},${mb},0)`]]);
   const[br,bgn,bb]=hexRgb(pal.bg);
+  const trail=`rgba(${br},${bgn},${bb},0.075)`;
   const N=Math.round((560+320*energy)*V.quality);
   const ps=[];
   for(let i=0;i<N;i++)ps.push({
@@ -1530,7 +1588,7 @@ VisualEngine.modes.organic=function(V,r,music){
       const strength=(16+drive*130+surge*70)*(0.45+energy*0.75);
       /* long trails */
       g.globalAlpha=1;g.globalCompositeOperation="source-over";
-      g.fillStyle=`rgba(${br},${bgn},${bb},0.075)`;
+      g.fillStyle=trail;
       g.fillRect(0,0,W,H);
       g.globalCompositeOperation="lighter";
       const blend=1-Math.exp(-dt*2.2);
@@ -1574,9 +1632,9 @@ VisualEngine.modes.organic=function(V,r,music){
         g.globalAlpha=k*(0.35+0.45*f.treb);
         g.drawImage(moteSpr,m2.x-m2.sz/2,m2.y-m2.sz/2,m2.sz,m2.sz);
       }
-      if(f.treb>0.55&&motes.length<60&&Math.random()<0.3){
-        motes.push({x:W*Math.random(),y:H*(0.6+Math.random()*0.4),
-          vy:-30,life:3,age:0,sz:5,ph:Math.random()*TAU});
+      if(f.treb>0.55&&motes.length<60&&r.chance(0.3)){
+        motes.push({x:W*r.f(),y:H*r.range(0.6,1),
+          vy:-30,life:3,age:0,sz:5,ph:r.f()*TAU});
       }
       g.globalAlpha=1;
       g.globalCompositeOperation="source-over";
@@ -1608,25 +1666,28 @@ const app={
   style:null,mood:null,seed:0,
   active:false,playing:false,raf:0,
   showFps:false,
-  frameEma:16.7,fpsAccum:0,fpsCount:0,fpsClock:0,
+  frameEma:16.7,fpsClock:0,
   lastTs:0,
 };
 
-/* selection cards */
-for(const card of document.querySelectorAll(".card")){
-  card.addEventListener("click",()=>{
-    const kind=card.dataset.style?"style":"mood";
-    app[kind]=card.dataset[kind];
-    for(const c of document.querySelectorAll(`.card[data-${kind}]`))c.classList.toggle("sel",c===card);
-    els.gen.disabled=!(app.style&&app.mood);
-  });
+/* selection cards — one place updates state, highlight and aria-pressed */
+function select(kind,value){
+  app[kind]=value;
+  for(const c of document.querySelectorAll(`.card[data-${kind}]`)){
+    const on=c.dataset[kind]===value;
+    c.classList.toggle("sel",on);
+    c.setAttribute("aria-pressed",on);
+  }
+  els.gen.disabled=!(app.style&&app.mood);
 }
+for(const card of document.querySelectorAll(".card")){
+  const kind=card.dataset.style?"style":"mood";
+  card.addEventListener("click",()=>select(kind,card.dataset[kind]));
+}
+const pickKey=o=>{const k=Object.keys(o);return k[Math.floor(Math.random()*k.length)];};
 els.lucky.addEventListener("click",()=>{
-  const styles=Object.keys(STYLE_META),moods=Object.keys(MOOD_META);
-  const s=styles[Math.floor(Math.random()*styles.length)];
-  const m=moods[Math.floor(Math.random()*moods.length)];
-  document.querySelector(`.card[data-style="${s}"]`).click();
-  document.querySelector(`.card[data-mood="${m}"]`).click();
+  select("style",pickKey(STYLE_META));
+  select("mood",pickKey(MOOD_META));
   begin();
 });
 els.gen.addEventListener("click",()=>{ if(app.style&&app.mood) begin(); });
@@ -1641,6 +1702,7 @@ function begin(seed){
   viz.start(app.mood,{name:app.style,energy:meta.energy,beat:meta.beat,bpm:audio.info.bpm},(app.seed^0x9e3779b9)>>>0);
   els.label.textContent=`${meta.label} · ${MOOD_META[app.mood].label}`;
   els.seed.textContent="seed "+app.seed.toString(16).padStart(8,"0");
+  dropFocusIn(els.menu);
   els.menu.classList.add("gone");
   els.stage.classList.remove("gone");
   app.active=true;app.playing=true;
@@ -1652,6 +1714,12 @@ function begin(seed){
 function setPlayIcon(playing){
   els.icoPlay.style.display=playing?"none":"";
   els.icoPause.style.display=playing?"":"none";
+  els.play.setAttribute("aria-label",playing?"Pause":"Play");
+}
+/* a screen being hidden must not keep keyboard focus, or Enter/Space
+   would keep activating a control the user can no longer see */
+function dropFocusIn(el){
+  if(el.contains(document.activeElement))document.activeElement.blur();
 }
 function togglePlay(){
   if(!app.active)return;
@@ -1669,6 +1737,7 @@ function toMenu(){
   app.active=false;app.playing=false;
   audio.stop(false);
   viz.stop();
+  dropFocusIn(els.stage);
   els.stage.classList.add("gone");
   els.menu.classList.remove("gone");
   els.stage.classList.remove("hidecursor");
@@ -1687,13 +1756,16 @@ document.addEventListener("fullscreenchange",()=>{
   const fs=!!document.fullscreenElement;
   els.icoExpand.style.display=fs?"none":"";
   els.icoShrink.style.display=fs?"":"none";
+  els.full.setAttribute("aria-label",fs?"Exit fullscreen":"Fullscreen");
 });
 
-/* clicked buttons must not keep focus, or Space re-activates them
-   instead of toggling playback */
+/* mouse/touch-clicked buttons must not keep focus, or Space re-activates
+   them instead of toggling playback. Keyboard activations (detail 0) keep
+   focus so Tab navigation isn't reset after every press; Space is still
+   safe there because the keydown handler below prevents its default. */
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");
-  if(b)b.blur();
+  if(b&&e.detail>0)b.blur();
 });
 
 /* keyboard (match e.key too — some environments send empty e.code) */
@@ -1737,10 +1809,10 @@ function loop(ts){
   /* ignore clamped/hidden-tab deltas so throttling can't fake "slow" */
   if(dt<0.045&&document.visibilityState==="visible")
     app.frameEma=lerp(app.frameEma,dt*1000,0.05);
-  app.fpsClock+=dt;app.fpsCount++;
+  app.fpsClock+=dt;
   if(app.fpsClock>=0.5){
     if(app.showFps)els.fps.textContent=`${Math.round(1000/app.frameEma)} fps`;
-    app.fpsClock=0;app.fpsCount=0;
+    app.fpsClock=0;
   }
   if(app.frameEma>21&&viz.quality>0.55){
     viz.quality*=0.8;app.frameEma=16.7;
@@ -1752,7 +1824,9 @@ function loop(ts){
 /* debug handle for console-driven testing */
 window.OSC={app,audio,viz,begin,
   debug(style,mood,seed){
-    app.style=style;app.mood=mood;
+    if(!STYLE_META[style]||!MOOD_META[mood])
+      throw new Error(`OSC.debug(style, mood, seed): style ∈ ${Object.keys(STYLE_META).join("|")}, mood ∈ ${Object.keys(MOOD_META).join("|")}`);
+    select("style",style);select("mood",mood);   // keep the menu in sync
     begin(seed);
   },
 };

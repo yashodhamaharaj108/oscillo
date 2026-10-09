@@ -77,9 +77,13 @@ The app is plug-in shaped:
 
 - **New style:** add `AudioEngine.styles.yourstyle = function(E, r){ ... }`
   returning `{stepDur, step(t, i)}`; add an entry to `STYLE_META`; add one
-  `<button class="card" data-style="yourstyle">` in the menu. Push timestamped
-  events (`E.events.push({t, type:'kick'|'note'|'chord'|..., ...})`) so the
-  visuals react to your notes.
+  `<button class="card" aria-pressed="false" data-style="yourstyle">` in the
+  menu. Route everything into `E.out` (this generation's fader — it is faded
+  and disconnected on stop/regenerate) and register long-lived nodes with
+  `E.reg(node)`. `E.makeImpulse(sec, pow)` is cached, so reverbs are cheap to
+  request. Push timestamped events
+  (`E.events.push({t, type:'kick'|'note'|'chord'|..., ...})`) so the visuals
+  react to your notes.
 - **New mood:** same pattern with `VisualEngine.modes`, `MOOD_META`, and a
   `data-mood` card. A mode factory gets `(V, rng, music)` and returns
   `{bg, frame(dt, features, events, t)}` — `features` carries normalized
@@ -99,7 +103,9 @@ automatically.
   impulse-train buffers — that's why the vinyl-crackle bed bakes its filtering
   into the buffer instead of using a live filter node. If a style suddenly
   screams or dies, check `OSC.audio.comp.reduction` first.
-- **Buttons blur on click on purpose.** If a control kept focus, pressing
-  `Space` would re-activate it instead of toggling playback.
+- **Buttons blur on mouse/touch click on purpose.** If a control kept focus,
+  pressing `Space` would re-activate it instead of toggling playback.
+  Keyboard activations keep focus (so Tab order isn't lost); that's safe
+  because the global `Space` handler calls `preventDefault()`.
 - Keep the single-file constraint: no external scripts, fonts, audio, or
   images. Everything is synthesized — that's the point of the piece.
